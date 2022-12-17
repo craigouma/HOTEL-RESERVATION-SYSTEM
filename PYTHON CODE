@@ -1,0 +1,84 @@
+import datetime
+
+class Hotel:
+  def __init__(self, name, room_rates):
+    self.name = name
+    self.room_rates = room_rates
+    self.guests = []
+    self.reservations = []
+  
+  def make_reservation(self, guest, check_in, check_out, room_type):
+    check_in = datetime.datetime.strptime(check_in, '%Y-%m-%d')
+    check_out = datetime.datetime.strptime(check_out, '%Y-%m-%d')
+    if check_out < check_in:
+      raise ValueError('Check-out date must be after check-in date')
+    if room_type not in self.room_rates:
+      raise ValueError('Invalid room type')
+    if not self.is_available(room_type, check_in, check_out):
+      raise ValueError('Room is not available during the specified dates')
+    
+    reservation = Reservation(guest, check_in, check_out, room_type)
+    self.reservations.append(reservation)
+    self.guests.append(guest)
+    return reservation
+  
+  def is_available(self, room_type, check_in, check_out):
+    for reservation in self.reservations:
+      if reservation.room_type == room_type and reservation.overlaps(check_in, check_out):
+        return False
+    return True
+
+class Reservation:
+  def __init__(self, guest, check_in, check_out, room_type):
+    self.guest = guest
+    self.check_in = check_in
+    self.check_out = check_out
+    self.room_type = room_type
+  
+  def overlaps(self, check_in, check_out):
+    return (self.check_in <= check_out) and (self.check_out >= check_in)
+
+class Guest:
+  def __init__(self, name):
+    self.name = name
+
+# Create a hotel and add some room rates
+hotel = Hotel('Acme Hotel', {
+  'standard': 100,
+  'deluxe': 150,
+  'suite': 200
+})
+
+# Make some reservations
+guest1 = Guest('John Smith')
+reservation1 = hotel.make_reservation(guest1, '2022-01-01', '2022-01-03', 'standard')
+
+guest2 = Guest('Jane Doe')
+reservation2 = hotel.make_reservation(guest2, '2022-01-02', '2022-01-05', 'deluxe')
+
+guest3 = Guest('Bob Smith')
+reservation3 = hotel.make_reservation(guest3, '2022-01-03', '2022-01-08', 'suite')
+
+# Print out the reservations
+for reservation in hotel.reservations:
+  print(f'{reservation.guest.name} has reserved a {reservation.room_type} room from {reservation.check_in.strftime("%Y-%m-%d")} to {reservation.check_out.strftime("%Y-%m-%d")}')
+  # Try to make a reservation for a invalid room type
+try:
+  guest4 = Guest('Alice Smith')
+  reservation4 = hotel.make_reservation(guest4, '2022-01-01', '2022-01-03', 'superior')
+except ValueError as e:
+  print(e)
+
+# Try to make a reservation with a check-out date that is before the check-in date
+try:
+  guest5 = Guest('Bob Smith')
+  reservation5 = hotel.make_reservation(guest5, '2022-01-03', '2022-01-01', 'standard')
+except ValueError as e:
+  print(e)
+
+# Try to make a reservation for a room that is not available during the specified dates
+try:
+  guest6 = Guest('Alice Smith')
+  reservation6 = hotel.make_reservation(guest6, '2022-01-01', '2022-01-05', 'standard')
+except ValueError as e:
+  print(e)
