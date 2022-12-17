@@ -1,5 +1,27 @@
 import datetime
 
+class HotelChain:
+  def __init__(self):
+    self.hotels = []
+
+  def add_hotel(self, hotel):
+    self.hotels.append(hotel)
+
+  def search(self, check_in, check_out, room_type=None, price_range=None):
+    available_rooms = []
+    for hotel in self.hotels:
+      if room_type:
+        rooms = hotel.get_available_rooms(check_in, check_out, room_type)
+      else:
+        rooms = hotel.get_available_rooms(check_in, check_out)
+      for room in rooms:
+        if price_range:
+          if room.price >= price_range[0] and room.price <= price_range[1]:
+            available_rooms.append(room)
+        else:
+          available_rooms.append(room)
+    return available_rooms
+
 class Hotel:
   def __init__(self, name, room_rates):
     self.name = name
@@ -7,7 +29,7 @@ class Hotel:
     self.guests = []
     self.reservations = []
   
-  def make_reservation(self, guest, check_in, check_out, room_type):
+  def make_reservation(self, guest, check_in, check_out, room_type, payment_info):
     check_in = datetime.datetime.strptime(check_in, '%Y-%m-%d')
     check_out = datetime.datetime.strptime(check_out, '%Y-%m-%d')
     if check_out < check_in:
@@ -17,10 +39,30 @@ class Hotel:
     if not self.is_available(room_type, check_in, check_out):
       raise ValueError('Room is not available during the specified dates')
     
-    reservation = Reservation(guest, check_in, check_out, room_type)
+    reservation = Reservation(guest, check_in, check_out, room_type, payment_info)
     self.reservations.append(reservation)
     self.guests.append(guest)
     return reservation
+  
+  def cancel_reservation(self, reservation, cancellation_date):
+    cancellation_date = datetime.datetime.strptime(cancellation_date, '%Y-%m-%d')
+    if reservation.status != 'active':
+      raise ValueError('Reservation is not active and cannot be cancelled')
+    if cancellation_date > reservation.check_in:
+      reservation.status = 'cancelled'
+      reservation.payment.refund(reservation.total_cost)
+      self.reservations.remove(reservation)
+      self.guests.remove(reservation.guest)
+    else:
+      raise ValueError('Cancellation must be made at least 48 hours in advance')
+  
+  def get_available_rooms(self, check_in, check_out, room_type=None):
+    available_rooms = []
+    for room_type, price in self.room_rates.items():
+      if not room_type or room_type == room_type
+        if self.is_available(room_type, check_in, check_out):
+          available_rooms.append(Room(room_type, price))
+    return available_rooms
   
   def is_available(self, room_type, check_in, check_out):
     for reservation in self.reservations:
@@ -28,57 +70,106 @@ class Hotel:
         return False
     return True
 
+class Room:
+  def __init__(self, room_type, price):
+    self.room_type = room_type
+    self.price = price
+
 class Reservation:
-  def __init__(self, guest, check_in, check_out, room_type):
+  def __init__(self, guest, check_in, check_out, room_type, payment_info):
     self.guest = guest
     self.check_in = check_in
     self.check_out = check_out
     self.room_type = room_type
+    self.payment = Payment(payment_info)
+    self.status = 'active'
   
   def overlaps(self, check_in, check_out):
     return (self.check_in <= check_out) and (self.check_out >= check_in)
+  
+  @property
+  def total_cost(self):
+    return (self.check_out - self.check_in).days * self.payment.amount_due
+
+class Payment:
+  def __init__(self, payment_info):
+    self.amount_due = payment_info['amount']
+    self.credit_card = payment_info['credit_card']
+  
+  def charge(self, amount):
+    # Charge the credit card for the given amount
+    pass
+  
+  def refund(self, amount):
+    # Refund the given amount to the credit card
+    pass
 
 class Guest:
-  def __init__(self, name):
+  def __init__(self, name, email):
     self.name = name
+    self.email = email
 
-# Create a hotel and add some room rates
-hotel = Hotel('Acme Hotel', {
+# Create a hotel chain
+hotel_chain = HotelChain()
+
+# Create some hotels and add them to the chain
+hotel1 = Hotel('Acme Hotel', {
   'standard': 100,
   'deluxe': 150,
   'suite': 200
 })
+hotel_chain.add_hotel(hotel1)
+
+hotel2 = Hotel('Best Hotel', {
+  'standard': 120,
+  'deluxe': 180,
+  'suite': 250
+})
+hotel_chain.add_hotel(hotel2)
 
 # Make some reservations
-guest1 = Guest('John Smith')
-reservation1 = hotel.make_reservation(guest1, '2022-01-01', '2022-01-03', 'standard')
+guest1 = Guest('John Smith', 'john@example.com')
+payment_info1 = {
+  'amount': 300,
+  'credit_card': '1234567890'
+}
+reservation1 = hotel1.make_reservation(guest1, '2022-01-01', '2022-01-03', 'standard', payment_info1)
 
-guest2 = Guest('Jane Doe')
-reservation2 = hotel.make_reservation(guest2, '2022-01-02', '2022-01-05', 'deluxe')
+guest2 = Guest('Jane Doe', 'jane@example.com')
+payment_info2 = {
+  'amount': 450,
+  'credit_card': '0987654321'
+}
+reservation2 = hotel1.make_reservation(guest2, '2022-01--02', '2022-01-05', 'deluxe', payment_info2)
 
-guest3 = Guest('Bob Smith')
-reservation3 = hotel.make_reservation(guest3, '2022-01-03', '2022-01-08', 'suite')
+guest3 = Guest('Bob Johnson', 'bob@example.com')
+payment_info3 = {
+  'amount': 600,
+  'credit_card': '9876543210'
+}
+reservation3 = hotel2.make_reservation(guest3, '2022-01-01', '2022-01-03', 'suite', payment_info3)
+# Search for available rooms
+check_in = '2022-01-01'
+check_out = '2022-01-05'
+room_type = 'deluxe'
+price_range = (150, 200)
+available_rooms = hotel_chain.search(check_in, check_out, room_type, price_range)
+print(f'Available {room_type} rooms:')
+for room in available_rooms:
+  print(f' - {room.room_type} at {room.price} per night')
 
-# Print out the reservations
-for reservation in hotel.reservations:
-  print(f'{reservation.guest.name} has reserved a {reservation.room_type} room from {reservation.check_in.strftime("%Y-%m-%d")} to {reservation.check_out.strftime("%Y-%m-%d")}')
-  # Try to make a reservation for a invalid room type
+# Cancel a reservation
+hotel1.cancel_reservation(reservation1, '2022-01-01')
+
+# Try to cancel a reservation that is not active
 try:
-  guest4 = Guest('Alice Smith')
-  reservation4 = hotel.make_reservation(guest4, '2022-01-01', '2022-01-03', 'superior')
+  hotel1.cancel_reservation(reservation1, '2022-01-01')
 except ValueError as e:
   print(e)
 
-# Try to make a reservation with a check-out date that is before the check-in date
+# Try to cancel a reservation less than 48 hours in advance
 try:
-  guest5 = Guest('Bob Smith')
-  reservation5 = hotel.make_reservation(guest5, '2022-01-03', '2022-01-01', 'standard')
+  hotel1.cancel_reservation(reservation2, '2022-01-03')
 except ValueError as e:
   print(e)
 
-# Try to make a reservation for a room that is not available during the specified dates
-try:
-  guest6 = Guest('Alice Smith')
-  reservation6 = hotel.make_reservation(guest6, '2022-01-01', '2022-01-05', 'standard')
-except ValueError as e:
-  print(e)
